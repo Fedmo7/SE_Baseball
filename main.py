@@ -11,6 +11,7 @@ def main(page: ft.Page):
     my_controller = Controller(my_view, my_model)
     my_view.set_controller(my_controller)
     my_view.load_interface()
+    my_controller.take_year()
 
 
 ft.app(target=main)
