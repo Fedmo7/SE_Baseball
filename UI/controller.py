@@ -70,14 +70,14 @@ class Controller:
 
     def handle_percorso(self, e):
         id_selezionato = self._view.dd_squadra.value
-
+        print(id_selezionato)
         if id_selezionato is None:
             self._view.show_alert("Seleziona prima una squadra dal menu!")
             return
 
         # Trasformo l'ID della UI in oggetto Team
         squadra_partenza = self._model.dizionario_squadra_year.get(int(id_selezionato))
-
+        print(squadra_partenza)
         if squadra_partenza is None:
             print("Errore: Squadra non trovata nel dizionario")
             return

@@ -59,23 +59,27 @@ class Model:
         nodo_ultimo = percorso_corrente[-1]
 
         vicini_validi = []
-        for v in self.G.neighbors(nodo_ultimo):
-            if v not in percorso_corrente:
-                peso_arco = self.G[nodo_ultimo][v]["weight"]
-                if peso_arco < peso_precedente:
-                    vicini_validi.append((v, peso_arco))
+        k = 0
 
-        # Strategia K=3
-        vicini_validi.sort(key=lambda x: x[1], reverse=True)
-        k=0
-        for vicino, peso in vicini_validi:
+        for v in self.G.neighbors(nodo_ultimo):
             if k==3:
                 break
 
-            elif peso<=peso_precedente:
-                k+=1
+            elif v not in percorso_corrente:
+                peso_arco = self.G[nodo_ultimo][v]["weight"]
+                if peso_arco < peso_precedente:
+                    vicini_validi.append((v, peso_arco))
+                    k+=1
+
+        # Strategia K=3
+        vicini_validi.sort(key=lambda x: x[1], reverse=True)
+
+        for vicino, peso in vicini_validi:
+            if peso<=peso_precedente:
+
                 percorso_corrente.append(vicino)
                 self._ricorsione(percorso_corrente, peso, peso_totale + peso)
+                print('A')
                 percorso_corrente.pop()
 '''
     def trova_miglior_percorso(self,start_nodo):
