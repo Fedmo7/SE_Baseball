@@ -2,46 +2,50 @@ import flet as ft
 from UI.view import View
 from model.model import Model
 
+
 class Controller:
     def __init__(self, view: View, model: Model):
         self._view = view
         self._model = model
-        self.squadra=None
+        self.dizionario_team={}
 
 
 
 
-    def take_year(self):
+    def get_all_years(self):
+
         lista_anni=self._model.take_years()
-        self._view.dd_anno.options=[ft.dropdown.Option(a) for a in lista_anni]
-        self._view.dd_anno.update()
-
-    def get_year_selected(self,e):
-
-        year=e.control.value
-        self._model.take_all_team(year)
-        self.squadre_for_year()
-
-    def squadre_for_year(self):
-
-        self.squadre_anno=self._model.dizionario_squadra_year.copy()
-        self._view.txt_out_squadre.controls.clear()
-        for squadra in self.squadre_anno.values():
-            self._view.txt_out_squadre.controls.append(ft.Text(f'{squadra}'))
-
-        self._view.page.update()
+        return lista_anni
 
 
     def handle_crea_grafo(self, e):
         """ Handler per gestire creazione del grafo """""
         # TODO
 
-        self._model.build_graph()
-        self._view.dd_squadra.options.clear()
-        self._view.dd_squadra.options=[ft.dropdown.Option(key=str(s.id), text=s) for s in self._model.dizionario_squadra_year.values()]
-        self._view.dd_squadra.update()
+        year = self._view.dd_anno.value
+
+        if year is None:
+            self._view.show_alert("Errore: selezionare un anno.")
+            return
+
+        self.dizionario_team = self._model.take_nodi(year)
+        print(self.dizionario_team)
+
+        self._view.txt_out_squadre.controls.clear()
+        self._view.txt_out_squadre.controls.append(ft.Text(f'Numero squadre: {len(self.dizionario_team.values())}'))
+        for team in self.dizionario_team:
+            squadra=self.dizionario_team[team]
+            self._view.txt_out_squadre.controls.append(
+                ft.Text(f'{squadra.team_code} ({squadra.team_name})'))
+
+        self._view.update()
 
 
+        self._model.crea_grafo()
+
+
+        self._view.dd_squadra.options = [ft.dropdown.Option(key=t.id, text=t.team_name) for t in self.dizionario_team.values()]
+        self._view.update()
 
 
 
@@ -49,52 +53,49 @@ class Controller:
         """ Handler per gestire i dettagli """""
         # TODO
 
-        squadra_id = int(self._view.dd_squadra.value)
-        self.squadra=self.squadre_anno[squadra_id]
+        key=self._view.dd_squadra.value
 
+        if key is None:
+            self._view.show_alert("Errore: selezionare una squadra.")
+            return
 
-        lista_vicini=list(self._model.G.neighbors(self.squadra))
-        vicini_pesati=[]
-        for v in lista_vicini:
-            peso = self._model.G.edges[(self.squadra, v)]["weight"]
-            vicini_pesati.append((v, peso))
+        lista_team_peso=self._model.trova_squadre_adiacenti(key)
 
-        # ordino per peso crescente
-        vicini_pesati.sort(key=lambda x: x[1],reverse=True)
+        for tupla in lista_team_peso:
 
-        self._view.txt_risultato.controls.clear()
-        for vicino, peso in vicini_pesati:
-            self._view.txt_risultato.controls.append(ft.Text(f"{vicino} - peso {peso}"))
+            self._view.txt_risultato.controls.append(ft.Text(f'{tupla[0].team_code}({tupla[0].team_name})-peso({tupla[1]})'))
 
-        self._view.txt_risultato.update()
+        self._view.page.update()
 
     def handle_percorso(self, e):
-        id_selezionato = self._view.dd_squadra.value
-        print(id_selezionato)
-        if id_selezionato is None:
-            self._view.show_alert("Seleziona prima una squadra dal menu!")
+
+        id_partenza = self._view.dd_squadra.value
+
+        if id_partenza is None:
+            self._view.show_alert("Errore: selezionare un elemento di partenza.")
             return
 
-        # Trasformo l'ID della UI in oggetto Team
-        squadra_partenza = self._model.dizionario_squadra_year.get(int(id_selezionato))
-        print(squadra_partenza)
-        if squadra_partenza is None:
-            print("Errore: Squadra non trovata nel dizionario")
-            return
 
-        # Chiamo la ricorsione nel modello
-        percorso = self._model.trova_miglior_percorso(squadra_partenza)
+        path, peso_totale = self._model.get_best_path(id_partenza)
 
-        # Pulizia e visualizzazione
         self._view.txt_risultato.controls.clear()
 
-        if not percorso:
+        if not path or len(path) < 2:
             self._view.txt_risultato.controls.append(ft.Text("Nessun percorso trovato."))
         else:
-            self._view.txt_risultato.controls.append(
-                ft.Text(f"Percorso trovato! Peso totale: {self._model.peso_ottimo}")
-            )
-            for s in percorso:
-                self._view.txt_risultato.controls.append(ft.Text(f"{s}"))
+
+            for i in range(len(path) - 1):
+                nodo_u = path[i]
+                nodo_v = path[i + 1]
+
+                # Recupero il peso dell'arco dal grafo G
+                peso_arco = self._model.G[nodo_u][nodo_v]['weight']
+
+                # Formattazione stringa: Squadra1 -> Squadra2 (peso XXX)
+                riga = f"{nodo_u.team_name} -> {nodo_v.team_name} (peso {peso_arco})"
+                self._view.txt_risultato.controls.append(ft.Text(riga))
+
+            # 4. Aggiungo il peso totale in fondo
+                self._view.txt_risultato.controls.append(ft.Text(f"Peso totale: {peso_totale}"))
 
         self._view.page.update()

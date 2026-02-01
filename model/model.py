@@ -1,122 +1,101 @@
-import networkx as nx
+
 from database.dao import DAO
+import networkx as nx
+
 
 
 
 class Model:
     def __init__(self):
         self.G = nx.Graph()
-        self.lista_nodi_creati=[]
-        self.dizionario_squadra_year={}
-        self.nodi_map={}
+        self.lista_archi=[]
+        self.dizionario_nodi_creati={}
+        self.nodo = None
+
 
 
     def take_years(self):
 
-        lista_anni=DAO.query_year()
-        return lista_anni
-
-
-    def take_all_team(self,year):
-
-        self.dizionario_squadra_year=DAO.get_all_team(year)
-        print(self.dizionario_squadra_year)
+        self.lista_archi = DAO.query_year()
+        return self.lista_archi
 
 
 
-    def build_graph(self):
+    def take_nodi(self,year):
 
-        # TODO
+        self.dizionario_nodi_creati = DAO.query_team(year)
+
+        return self.dizionario_nodi_creati
+
+
+    def crea_grafo(self):
 
         self.G.clear()
 
-        for squadra1 in self.dizionario_squadra_year.values():
-            for squadra2 in self.dizionario_squadra_year.values():
 
-                if squadra1==squadra2:
-                    continue
+        for n in self.dizionario_nodi_creati.values():
+            self.G.add_node(n)
 
-                else:
-                    peso=squadra1.salary+squadra2.salary
-                    self.G.add_edge(squadra1, squadra2,weight=peso)
 
-        print(self.G.number_of_nodes())
-        print(self.G.number_of_edges())
+        for n1 in self.dizionario_nodi_creati.values():
+            for n2 in self.dizionario_nodi_creati.values():
 
-    def trova_miglior_percorso(self, start_nodo):
-        self.soluzione_best = []
-        self.peso_ottimo = 0
-        # Iniziamo la ricorsione
-        self._ricorsione([start_nodo], peso_precedente=float('inf'), peso_totale=0)
-        return self.soluzione_best
+                peso=n1.salary+n2.salary
+                self.G.add_edge(n1,n2,weight=peso)
 
-    def _ricorsione(self, percorso_corrente, peso_precedente, peso_totale):
-        # Salva il percorso migliore trovato finora
-        if peso_totale > self.peso_ottimo:
-            self.soluzione_best =percorso_corrente.copy()
-            self.peso_ottimo = peso_totale
 
-        nodo_ultimo = percorso_corrente[-1]
 
-        vicini_validi = []
-        k = 0
+    def trova_squadre_adiacenti(self,key):
 
-        for v in self.G.neighbors(nodo_ultimo):
-            if k==3:
-                break
+        self.nodo=self.dizionario_nodi_creati[int(key)]
 
-            elif v not in percorso_corrente:
-                peso_arco = self.G[nodo_ultimo][v]["weight"]
-                if peso_arco < peso_precedente:
-                    vicini_validi.append((v, peso_arco))
-                    k+=1
+        lista_vicini=self.G.neighbors(self.nodo)
+        lista_vicini_con_peso=[]
 
-        # Strategia K=3
-        vicini_validi.sort(key=lambda x: x[1], reverse=True)
+        for n in lista_vicini:
+            peso=self.G[self.nodo][n]['weight']
+            lista_vicini_con_peso.append((n,peso))
 
-        for vicino, peso in vicini_validi:
-            if peso<=peso_precedente:
+        return lista_vicini_con_peso
 
-                percorso_corrente.append(vicino)
-                self._ricorsione(percorso_corrente, peso, peso_totale + peso)
-                print('A')
-                percorso_corrente.pop()
-'''
-    def trova_miglior_percorso(self,start_nodo):
+    def get_best_path(self, key):
+        self.best_path = []
+        self.best_peso_totale = 0
 
-        self.soluzione_best = []
-        self.peso_ottimo =0
-        self._ricorsione([start_nodo],peso_corrente=float('inf'),peso_totale=0)
-        return self.soluzione_best
+        start_node = self.dizionario_nodi_creati[int(key)]
 
-    def _ricorsione(self,percorso_corrente,peso_corrente,peso_totale):
+        self._ricorsione([start_node], 0, float('inf'))
 
-        if  peso_totale> self.peso_ottimo:
-            self.soluzione_best = percorso_corrente.copy()
-            self.peso_ottimo = peso_corrente
+        return self.best_path, self.best_peso_totale
 
-        nodo_partenza=percorso_corrente[-1]
-        lista_nodi_vicini=self.G.neighbors(nodo_partenza)
-        lista_vicini_ordinati=[]
 
-        for v in lista_nodi_vicini:
-            peso = self.G.edges[(nodo_partenza, v)]["weight"]
-            lista_vicini_ordinati.append((v, peso))
+    def _ricorsione(self, parziale, peso_parziale, ultimo_peso_arco):
+        # 1. Aggiornamento del Best (Peso massimo)
 
-        # ordino per peso crescente
-        lista_vicini_ordinati.sort(key=lambda x: x[1],reverse=True)
-        k=0
+        if peso_parziale > self.best_peso_totale:
+            self.best_path = list(parziale)
+            self.best_peso_totale = peso_parziale
 
-        for arco in lista_vicini_ordinati:
-            if k==3:
-                break
-            else:
-                if peso_corrente>=float(arco[1]) and arco[0] not in percorso_corrente:
-                    k+=1
-                    percorso_corrente.append(arco[0])
-                    peso_nuovo=arco[1]
-                    self._ricorsione(percorso_corrente,peso_nuovo,peso_totale+peso_nuovo)
-                    percorso_corrente.pop()
+        ultimo_nodo = parziale[-1]
 
-'''
+        # 2. Recupero vicini con i relativi pesi degli archi
+        vicini_pesati = []
+        for vicino in self.G.neighbors(ultimo_nodo):
+            if vicino not in parziale:
+                peso_arco = self.G[ultimo_nodo][vicino]['weight']
+                # Vincolo: peso strettamente decrescente rispetto all'arco precedente
+                if peso_arco < ultimo_peso_arco:
+                    vicini_pesati.append((vicino, peso_arco))
+
+        # 3. Ordinamento decrescente per peso dell'arco
+        vicini_pesati.sort(key=lambda x: x[1], reverse=True)
+
+        # 4. Esplorazione limitata ai primi K=3 vicini più pesanti
+        K = 3
+        for vicino, peso in vicini_pesati[:K]:
+            parziale.append(vicino)
+            self._ricorsione(parziale, peso_parziale + peso, peso)
+            parziale.pop()  # Backtracking
+
+
 

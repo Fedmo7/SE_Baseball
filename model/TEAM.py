@@ -4,7 +4,6 @@ from dataclasses import dataclass
 @dataclass
 class Team:
     id: int
-    year: int
     team_code: str
     team_name: str
     salary:float
